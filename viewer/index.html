@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SupaClip Recording</title>
+    <meta property="og:title" content="SupaClip Recording">
+    <meta property="og:description" content="Watch this screen recording">
+    <meta property="og:type" content="video.other">
+    <meta property="og:video" content="">
+    <meta property="og:video:type" content="video/webm">
+    <meta name="twitter:card" content="player">
+    <meta name="twitter:title" content="SupaClip Recording">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="player-wrapper">
+            <video id="player" controls autoplay>
+                <source id="video-source" src="" type="video/webm">
+                Your browser does not support the video element.
+            </video>
+        </div>
+
+        <div class="info">
+            <h1 id="title">Screen Recording</h1>
+            <p id="duration"></p>
+        </div>
+
+        <div class="branding">
+            <p>Recorded with <strong>SupaClip</strong> — the crash-proof screen recorder</p>
+            <a href="https://supaclip.app" class="cta" target="_blank" rel="noopener">Try SupaClip Free</a>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const videoUrl = params.get('v');
+        if (videoUrl) {
+            document.getElementById('video-source').src = videoUrl;
+            document.getElementById('player').load();
+
+            // Update OG tags
+            document.querySelector('meta[property="og:video"]').content = videoUrl;
+
+            const player = document.getElementById('player');
+            player.addEventListener('loadedmetadata', () => {
+                const dur = player.duration;
+                const m = Math.floor(dur / 60);
+                const s = Math.floor(dur % 60);
+                document.getElementById('duration').textContent =
+                    `Duration: ${m}:${String(s).padStart(2, '0')}`;
+            });
+        }
+    </script>
+</body>
+</html>
