@@ -87,6 +87,7 @@ export interface AppSettings {
 	s3_endpoint: string;
 	s3_region: string;
 	webcam_enabled: boolean;
+	microphone_enabled: boolean;
 	webcam_position: string;
 }
 

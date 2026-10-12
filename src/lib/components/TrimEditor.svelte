@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { convertFileSrc } from '@tauri-apps/api/core';
 	import { savedFilePath } from '$lib/stores/recording';
 	import { trimVideo } from '$lib/commands';
 	import { formatDuration } from '$lib/stores/recording';
@@ -18,7 +19,7 @@
 
 	$effect(() => {
 		if (videoEl && $savedFilePath) {
-			videoEl.src = `asset://localhost/${$savedFilePath}`;
+			videoEl.src = convertFileSrc($savedFilePath);
 		}
 	});
 
@@ -48,7 +49,9 @@
 		error = '';
 		try {
 			const ext = $savedFilePath.split('.').pop();
-			const output = $savedFilePath.replace(`.${ext}`, `_trimmed.${ext}`);
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const output = await save({ defaultPath: $savedFilePath.replace(`.${ext}`, `_trimmed.${ext}`), filters: [{ name: 'Video', extensions: [ext || 'mp4'] }] });
+            if (!output) return;
 			const result = await trimVideo($savedFilePath, output, startTime, endTime);
 			onTrimmed(result);
 		} catch (err) {
@@ -124,7 +127,7 @@
 				class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors">
 				Preview
 			</button>
-			<button onclick={handleTrim} disabled={trimming}
+			<button onclick={handleTrim} disabled={trimming || !Number.isFinite(videoDuration) || videoDuration <= 0 || endTime <= startTime}
 				class="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
 				{trimming ? 'Trimming...' : 'Save Trimmed'}
 			</button>

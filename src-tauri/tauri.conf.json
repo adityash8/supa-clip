@@ -7,7 +7,7 @@
     "frontendDist": "../build",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build:native"
   },
   "app": {
     "windows": [
@@ -22,7 +22,14 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$HOME/Videos/SupaClip/**",
+          "$HOME/.supaclip/**"
+        ]
+      }
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
@@ -40,7 +47,8 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "signingIdentity": null
+      "signingIdentity": null,
+      "infoPlist": "Info.plist"
     }
   }
 }

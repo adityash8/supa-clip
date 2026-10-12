@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 import { readSettings, writeSettings, type AppSettings } from '$lib/commands';
 
 const defaultSettings: AppSettings = {
-	format: 'webm',
+	format: 'mp4',
 	fps: 30,
 	resolution: 'auto',
 	save_path: null,
@@ -13,7 +13,8 @@ const defaultSettings: AppSettings = {
 	s3_secret_key: '',
 	s3_endpoint: '',
 	s3_region: 'auto',
-	webcam_enabled: true,
+	webcam_enabled: false,
+	microphone_enabled: false,
 	webcam_position: 'bottom-right'
 };
 
@@ -26,7 +27,7 @@ export async function loadSettings() {
 		settings.set(s);
 		settingsLoaded.set(true);
 	} catch (err) {
-		console.error('Failed to load settings:', err);
+		// Keep local defaults when native settings cannot load.
 		settings.set(defaultSettings);
 		settingsLoaded.set(true);
 	}
@@ -35,9 +36,13 @@ export async function loadSettings() {
 export async function saveSettings(newSettings: AppSettings) {
 	try {
 		await writeSettings(newSettings);
+        const { unregisterAll, register } = await import('@tauri-apps/plugin-global-shortcut');
+        const { emit } = await import('@tauri-apps/api/event');
+        await unregisterAll();
+        await register(newSettings.hotkey, event => { if (event.state === 'Pressed') void emit('toggle-recording'); });
 		settings.set(newSettings);
 	} catch (err) {
-		console.error('Failed to save settings:', err);
+
 		throw err;
 	}
 }

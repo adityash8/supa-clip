@@ -22,10 +22,12 @@
 <div class="flex flex-col items-center justify-center h-full gap-8 p-8">
 	<div class="text-center">
 		<h1 class="text-3xl font-bold text-white">SupaClip</h1>
-		<p class="text-sm text-zinc-400 mt-1">Crash-proof screen recorder</p>
+		<p class="text-sm text-zinc-400 mt-1">Screen recorder with local recovery</p>
 	</div>
 
+	<p class="text-sm text-zinc-400 max-w-sm text-center">Records the first display on macOS. Microphone is off unless enabled in Settings. Allow macOS screen permission before recording content you may share.</p>
 	<button
+        aria-label="Start native recording"
 		onclick={handleRecord}
 		disabled={isStarting}
 		class="group relative w-28 h-28 rounded-full bg-red-500 hover:bg-red-400 active:bg-red-600

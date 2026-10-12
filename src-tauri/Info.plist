@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>NSMicrophoneUsageDescription</key><string>SupaClip uses your microphone only when you enable microphone recording in Settings.</string>
+<key>NSCameraUsageDescription</key><string>SupaClip uses your camera only when you enable the webcam preview in Settings.</string>
+</dict></plist>

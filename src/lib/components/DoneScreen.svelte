@@ -42,7 +42,7 @@
 				$settings.s3_region
 			);
 			await writeText(result.url);
-			showToast('Link copied to clipboard!');
+			showToast('Uploaded object URL copied. Access follows your bucket policy.');
 		} catch (err) {
 			showToast(String(err));
 		} finally {
@@ -94,7 +94,7 @@
 			disabled={uploading}
 			class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
 		>
-			{uploading ? 'Uploading...' : 'Upload & Copy Link'}
+			{uploading ? 'Uploading...' : 'Upload to S3 & Copy Object URL'}
 		</button>
 
 		<button

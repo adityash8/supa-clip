@@ -1,7 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
 
-export type RecordingState = 'idle' | 'recording' | 'done';
+export type RecordingState = 'idle' | 'recording' | 'saving' | 'done';
 
 export const recordingState = writable<RecordingState>('idle');
 export const sessionId = writable<string | null>(null);
@@ -17,8 +17,11 @@ export const isDone = derived(recordingState, ($s) => $s === 'done');
 let durationInterval: ReturnType<typeof setInterval> | null = null;
 let sizeInterval: ReturnType<typeof setInterval> | null = null;
 let startTime = 0;
+let starting = false;
 
-export async function startRecording(fps: number = 30, enableWebcam: boolean = true) {
+export async function startRecording(fps: number = 30, enableWebcam: boolean = false) {
+	if (starting || get(recordingState) !== 'idle') return;
+	starting = true;
 	try {
 		error.set(null);
 
@@ -51,8 +54,11 @@ export async function startRecording(fps: number = 30, enableWebcam: boolean = t
 			try {
 				const size: number = await invoke('get_recording_size');
 				bytesWritten.set(size);
-			} catch {
-				// ignore
+			} catch (err) {
+				error.set(String(err));
+                cleanup();
+                try { await invoke('stop_session'); } catch { /* Native exit already leaves saved fragments. */ }
+                recordingState.set('idle');
 			}
 		}, 1000);
 
@@ -62,13 +68,14 @@ export async function startRecording(fps: number = 30, enableWebcam: boolean = t
 		error.set(message);
 		cleanup();
 		throw err;
-	}
+	} finally { starting = false; }
 }
 
 export async function stopRecording(): Promise<string | null> {
 	const state = get(recordingState);
 	if (state !== 'recording') return null;
 
+	recordingState.set('saving');
 	cleanup();
 
 	try {
@@ -94,8 +101,8 @@ export async function stopRecording(): Promise<string | null> {
 			return path;
 		}
 	} catch (err) {
-		console.error('Failed to finalize:', err);
 		error.set(err instanceof Error ? err.message : String(err));
+		recordingState.set('idle');
 	}
 
 	return null;
