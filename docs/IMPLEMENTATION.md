@@ -1,5 +1,16 @@
 # SupaClip implementation
 
+## Correction checks declared before edits (2026-10-13)
+
+- Staged parts: `npm test` must prove finalization records its time, a ready clip is not swept while a signed part URL may remain valid, a failed purge remains eligible, and a successful purge after the window is marked complete. The schema change must be additive in this unapplied SQL.
+- Project gates: `npm run check`, `npm run lint`, `npm test`, `npm run build`, and `npm run test:browser` (browser execution may require the parent's macOS environment).
+
+### Correction result
+
+The unapplied `supabase/supaclip.sql` adds nullable `supaclip_clips.finalized_at`, set atomically by `supaclip_finalize`. The installed `@supabase/storage-js` documents signed upload URLs as valid for two hours (`StorageFileApi.ts`); ready-clip stage cleanup waits three hours from finalization to cover outstanding URLs for uploads finalized late in their 24-hour session. A failed Storage remove leaves `parts_cleaned_at` null, so maintenance retries; only a successful remove marks it complete. No existing data is deleted or rewritten. The server's internal clip row has an added timestamp; endpoint requests and responses are unchanged. Parent must review/apply this revised unapplied schema before deploying the corresponding code and keep the 15-minute maintenance schedule.
+
+Correction verification (local, no cloud operations): `npm run check` exit 0 (`svelte-check found 0 errors and 0 warnings`); `npm run lint` exit 0; `npm test` 31/31 passed, including PostgreSQL finalization-time eligibility and failed/successful Storage purge tests; `npm run build` exit 0 (`Using @sveltejs/adapter-vercel`, `✔ done`); `git diff --check` exit 0. `npm run test:browser` exited 1 with all 10 tests blocked before page load by Chromium `bootstrap_check_in ... Permission denied (1100)` in the macOS sandbox. Parent must run the browser suite outside this sandbox and perform the real signed PUT/finalization/late-write check after applying SQL.
+
 ## Plan before editing
 
 Authorization: build the appended web PRD's US-001–005 and preserve the native Tauri recorder. Parent owns install assistance, migrations, credentials, deployment and independent review. Original clone is read-only; its only dirty item is `.vscode/`, unrelated to product behavior.

@@ -6,7 +6,7 @@ create table public.supaclip_clips (
  duration double precision not null check (duration > 0 and duration <= 300),
  fingerprint text not null check (fingerprint ~ '^[a-f0-9]{64}$'),
  status text not null default 'uploading' check (status in ('uploading','ready','deleted')),
- created_at timestamptz not null default now(), deleted_at timestamptz, purged_at timestamptz, parts_cleaned_at timestamptz
+ created_at timestamptz not null default now(), finalized_at timestamptz, deleted_at timestamptz, purged_at timestamptz, parts_cleaned_at timestamptz
 );
 create index on public.supaclip_clips(owner_id, created_at desc);
 create table public.supaclip_upload_sessions (
@@ -64,7 +64,7 @@ end $$;
 create function public.supaclip_finalize(p_owner uuid,p_clip uuid,p_duration double precision) returns boolean
 language plpgsql security definer set search_path=public as $$
 begin
- update supaclip_clips set status='ready',duration=p_duration where id=p_clip and owner_id=p_owner and status='uploading'
+ update supaclip_clips set status='ready',duration=p_duration,finalized_at=now() where id=p_clip and owner_id=p_owner and status='uploading'
  and exists(select 1 from supaclip_upload_sessions where clip_id=p_clip and expires_at>now());
  return found;
 end $$;

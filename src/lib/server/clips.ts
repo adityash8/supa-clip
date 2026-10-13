@@ -116,7 +116,7 @@ export class Clips {
   }
   for (const clip of deleted) await this.remove(clip.id, clip.owner_id);
   // Purge stage parts of ready clips too (old signed stage URLs may outlive finalization).
-  const ready = dbResult(await this.admin.from('supaclip_clips').select('*').eq('status', 'ready').is('parts_cleaned_at', null).lt('created_at', new Date(Date.now()-3*3600000).toISOString()).order('created_at').limit(100)) as Clip[];
+  const ready = dbResult(await this.admin.from('supaclip_clips').select('*').eq('status', 'ready').is('parts_cleaned_at', null).lt('finalized_at', new Date(Date.now()-3*3600000).toISOString()).order('finalized_at').limit(100)) as Clip[];
   for (const clip of ready) {
    dbResult(await this.admin.storage.from(PART_BUCKET).remove(Array.from({ length: Math.ceil(clip.size / PART_BYTES) }, (_, i) => partPath(clip, i))));
    dbResult(await this.admin.from('supaclip_clips').update({ parts_cleaned_at: new Date().toISOString() }).eq('id', clip.id));

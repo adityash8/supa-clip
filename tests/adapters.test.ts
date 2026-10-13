@@ -53,6 +53,25 @@ test('missing/expired upload cannot finalize and does not produce final media',a
 test('verified assembled media becomes private playable clip',async()=>{
  const test=fake();const result=await test.service.finalize(id,owner);assert.equal(result.status,'ready');await test.service.playback(id,owner);assert.equal(test.signed,1);
 });
+test('ready stage purge retries on provider failure and marks only successful cleanup',async()=>{
+ for (const fail of [true, false]) {
+  const calls: string[]=[];
+  const client=createClient('https://unit.supabase.co','unit-test-key',{auth:{persistSession:false},global:{fetch:async(input,init)=>{
+   const url=new URL(String(input));const method=init?.method??'GET';calls.push(`${method} ${url.pathname}${url.search}`);
+   const respond=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}});
+   if(url.pathname==='/rest/v1/supaclip_upload_sessions')return respond([]);
+   if(url.pathname==='/rest/v1/supaclip_clips' && method==='GET')return respond(url.searchParams.get('status')==='eq.deleted'?[]:[{...clip,status:'ready',finalized_at:new Date(Date.now()-4*3600000).toISOString()}]);
+   if(url.pathname==='/rest/v1/supaclip_clips' && method==='PATCH')return respond([]);
+   if(url.pathname==='/rest/v1/supaclip_rate_limits')return respond([]);
+   if(method==='DELETE' && url.pathname.includes('/object/supaclip_parts'))return fail?respond({message:'failed'},500):respond([]);
+   return respond({message:'Unexpected provider path'},500);
+  }}});
+  const service=new Clips(client);
+  if(fail)await assert.rejects(service.cleanup());else await service.cleanup();
+  assert.ok(calls.some(c=>c.includes('finalized_at=lt.')));
+  assert.equal(calls.some(c=>c.startsWith('PATCH /rest/v1/supaclip_clips')),!fail);
+ }
+});
 test('expired/revoked links cannot issue a signed URL',async()=>{
  for(const config of [{expired:true},{revoked:true},{clip:{...clip,status:'deleted'}}]) {const test=fake(config);await assert.rejects(test.service.view('a'.repeat(43)));assert.equal(test.signed,0);}
 });

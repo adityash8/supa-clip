@@ -43,6 +43,19 @@ test('atomic share rejects foreign/deleted clips and delete immediately revokes 
  await db.query('select supaclip_delete($1,$2)',[other,row.id]);assert.ok((await db.query<any>('select revoked_at from supaclip_share_tokens where clip_id=$1',[row.id])).rows[0].revoked_at);
  assert.equal((await db.query<any>('select supaclip_share($1,$2,$3,$4) ok',[other,row.id,'newhash',expiry])).rows[0].ok,false);
 });
+test('ready stage cleanup waits three hours after finalization, including old uploads',async()=>{
+ const row=await begin(other,22);
+ await db.query("update supaclip_clips set created_at=now()-interval '23 hours' where id=$1",[row.id]);
+ assert.equal((await db.query<any>('select supaclip_finalize($1,$2,$3) ok',[other,row.id,10])).rows[0].ok,true);
+ const current=await db.query<any>('select finalized_at from supaclip_clips where id=$1',[row.id]);
+ assert.ok(current.rows[0].finalized_at);
+ const eligible=()=>db.query<any>("select id from supaclip_clips where status='ready' and parts_cleaned_at is null and finalized_at < now()-interval '3 hours' and id=$1",[row.id]);
+ assert.equal((await eligible()).rows.length,0);
+ await db.query("update supaclip_clips set finalized_at=now()-interval '3 hours 1 minute' where id=$1",[row.id]);
+ assert.equal((await eligible()).rows.length,1);
+ await db.query('update supaclip_clips set parts_cleaned_at=now() where id=$1',[row.id]);
+ assert.equal((await eligible()).rows.length,0);
+});
 test('database rate limiter enforces repeated requests',async()=>{
  assert.equal((await db.query<any>('select supaclip_rate($1,$2,$3) ok',['test',1,3600])).rows[0].ok,true);
  assert.equal((await db.query<any>('select supaclip_rate($1,$2,$3) ok',['test',1,3600])).rows[0].ok,false);
