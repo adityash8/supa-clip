@@ -7,6 +7,8 @@
 	let local = $state<AppSettings>({ ...$settings });
 	let saving = $state(false);
 	let saved = $state(false);
+    let message = $state('');
+    async function pickFolder() { const { open } = await import('@tauri-apps/plugin-dialog'); const folder = await open({ directory: true }); if (typeof folder === 'string') local.save_path = folder; }
 
 	async function handleSave() {
 		saving = true;
@@ -15,7 +17,7 @@
 			saved = true;
 			setTimeout(() => { saved = false; }, 2000);
 		} catch (err) {
-			console.error('Failed to save settings:', err);
+            message = 'Settings were not saved. Check the selected folder and try again.';
 		} finally {
 			saving = false;
 		}
@@ -38,12 +40,15 @@
 			<!-- Recording -->
 			<section>
 				<h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">Recording</h3>
+                <label class="flex items-center gap-3 text-sm text-zinc-300"><input type="checkbox" bind:checked={local.microphone_enabled}/>Include microphone (requires macOS permission)</label>
+                <label class="block text-sm text-zinc-300 mt-3">Resolution<select bind:value={local.resolution} class="bg-zinc-800 p-2 ml-3"><option value="auto">Native display</option><option value="1080p">1080p width</option><option value="720p">720p width</option></select></label>
+                <button class="text-sm text-zinc-300 py-2" onclick={pickFolder}>Choose save folder</button><p class="text-xs text-zinc-400 break-all">{local.save_path || '~/Videos/SupaClip/'}</p>
 				<div class="space-y-3">
 					<label class="flex items-center justify-between">
 						<span class="text-sm text-zinc-300">Format</span>
 						<select bind:value={local.format} class="bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-lg px-3 py-1.5">
 							<option value="webm">WebM</option>
-							<option value="mp4">MP4 (convert after)</option>
+							<option value="mp4">MP4</option>
 						</select>
 					</label>
 					<label class="flex items-center justify-between">
@@ -113,6 +118,7 @@
 			</section>
 		</div>
 
+		{#if message}<p role="alert" class="p-4 text-red-300">{message}</p>{/if}
 		<div class="p-4 border-t border-zinc-800 flex gap-2">
 			<button onclick={onClose}
 				class="flex-1 py-2 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors">

@@ -1,4 +1,5 @@
 mod commands;
+mod media;
 mod state;
 mod tray;
 
@@ -68,10 +69,24 @@ pub fn run() {
         .on_window_event(|window, event| {
             // Hide to tray on close instead of quitting
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                window.hide().unwrap_or_default();
+                let state = window.state::<AppState>();
+                let active = state
+                    .current_session
+                    .lock()
+                    .map(|s| s.is_some())
+                    .unwrap_or(true);
+                if !active {
+                    window.hide().unwrap_or_default();
+                }
                 api.prevent_close();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                let state = app.state::<AppState>();
+                let _ = commands::recording::stop_session(state);
+            }
+        });
 }

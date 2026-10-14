@@ -1,225 +1,53 @@
 # SupaClip
 
-**The crash-proof screen recorder. Your recording is saved. Always.**
+Record a deliberately selected screen, review locally and choose whether to upload or share. The browser app runs on SvelteKit/Vercel. The existing macOS Tauri recorder remains available from the same codebase.
 
-Ever been 20 minutes into a perfect screen recording and the app just... dies? Recording gone. Poof. You stare at the screen. You question your life choices. You re-record it (worse the second time, obviously).
+## Browser workflow
 
-SupaClip says: **never again.**
+1. Open the recorder in desktop Chromium over HTTPS (localhost works in development).
+2. Confirm you have permission to record the content. Choose a tab, window or screen. Microphone is off by default and asks for separate permission when enabled.
+3. Stop to preview and download WebM. Chunks are saved in IndexedDB. An interrupted recording may be recoverable, but arbitrary crashed media playback is not guaranteed; browser storage can be evicted. Download recordings you need to keep.
+4. Sign in with a verified email code, review the clip, and confirm private upload. Limits: 5 minutes, 50 MB per clip, 20 private/pending clips per account.
+5. Explicitly create a seven-day link. Anyone with the link can view the clip. Revoke or delete to block new access; already issued media URLs expire within 60 seconds.
 
-We write your recording to disk in real-time, chunk by chunk. Kill the app. Pull the power cable. Throw your laptop into a lake (okay, don't do that). Your recording survives.
+The labeled ten-second sample is synthetic video without screen or audio capture. It cannot upload or share. No recording uploads automatically.
 
----
+## Development and checks
 
-## Why SupaClip Exists
-
-Loom got acquired. Prices skyrocketed. Recordings started vanishing during upload. The AI features started randomly cutting your videos. Teams went from paying $240/year to $24,000/year overnight.
-
-Meanwhile, all people wanted was: **press a button, record screen, get a file.**
-
-That's SupaClip. No cloud dependency. No subscription traps. No AI that "helpfully" shreds your timeline. Just a recorder that works.
-
----
-
-## Features
-
-### The Stuff That Matters
-
-- **Crash-proof recording** — Chunks written to disk every second. App crashes? File's still there. We'll even ask if you want to recover it on next launch.
-- **Offline-first** — No internet? No problem. Everything works locally. Upload is optional.
-- **Instant launch** — ~10MB binary (not 150MB+ like Electron apps). Cold start under 500ms.
-- **Hotkey toggle** — `Cmd+Shift+9` to start. Same combo to stop. Never leave your flow.
-- **Trim editor** — Chop the "uhhh let me find the right tab" from the beginning and the "wait how do I stop this" from the end.
-- **Floating HUD** — Minimal recording indicator showing duration and file size. Stays out of your way.
-- **System tray** — Lives in your menu bar. Pulsing red dot when recording. You know, like a professional app.
-
-### The Stuff That's Nice
-
-- **Upload to S3/Bunny** — Optional cloud upload with link auto-copied to clipboard.
-- **Webcam overlay** — Picture-in-picture for when people need to see your face.
-- **Format options** — WebM (default, streaming-friendly) or MP4 (universal). 30fps or 60fps. Native resolution or downscaled.
-- **Custom save location** — Pick your folder. Default: `~/Videos/SupaClip/`.
-- **Recovery dialog** — Detects orphaned temp files on launch and offers to recover them.
-
----
-
-## Tech Stack
-
-| Layer | Tech | Why |
-|---|---|---|
-| Desktop shell | **Tauri v2** | Rust-powered, tiny binary, native performance |
-| Frontend | **SvelteKit** | Fast, lightweight, great DX |
-| Styling | **Tailwind CSS v4** | Rapid UI, consistent design |
-| Recording | **MediaRecorder API** | Browser-native screen + mic capture |
-| Video processing | **FFmpeg** (bundled) | Trimming, format conversion, crash recovery |
-| Backend logic | **Rust** | Chunk writing, file I/O, clipboard, hotkeys |
-| Settings | **Local JSON** | `~/.config/supaclip/settings.json` — human-readable, no database |
-
----
-
-## How Crash-Proof Works
-
-```
-You hit record
-       |
-       v
-  MediaRecorder captures video chunks (~1 second each)
-       |
-       v
-  Rust backend appends each chunk to a temp file on disk
-  (your recording exists as a playable file at ALL times)
-       |
-       v
-  You stop recording normally?
-       |
-   YES |          NO (crash, power loss, rage quit)
-       |               |
-       v               v
-  FFmpeg finalizes    Next launch detects the temp file
-  & moves to your     "Hey, we found an unsaved recording.
-  save folder          Want to recover it?"
-                       |
-                       v
-                      You get your recording back.
-                      Crisis averted. You're welcome.
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- **Node.js** 18+
-- **Rust** (latest stable) — [install via rustup](https://rustup.rs/)
-- **Tauri CLI** — installed as a dev dependency
-- **FFmpeg** — bundled with the app, but useful to have locally for development
-
-### Development
-
-```bash
-# Install dependencies
+```sh
 npm install
-
-# Run in development mode (opens the Tauri app with hot-reload)
-npm run tauri dev
-
-# Type-check the frontend
+npm run dev
 npm run check
+npm run lint
+npm test
+npm run build
+npm run test:browser
+npm run test:native
+npm run build:native
 ```
 
-### Build
+`npm test` executes domain, Supabase adapter, actual PostgreSQL SQL/RLS (PGlite) and Stripe signature/gate tests without production accounts. Browser acceptance injects only synthetic canvas/audio streams. Native tests generate a test video, force-kill FFmpeg, remux fragments and decode the result.
 
-```bash
-# Create a production build
-npm run tauri build
-```
+## Cloud configuration (parent-owned)
 
-This outputs platform-specific installers in `src-tauri/target/release/bundle/`.
+Review and apply [supabase/supaclip.sql](supabase/supaclip.sql) to the shared Supabase project. All tables, functions and private buckets use `supaclip_` prefixes. Do not modify other products' auth or storage policies.
 
----
+Server-only environment: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. No credentials are embedded in the browser. Configure Supabase email delivery and an email OTP template that contains `{{ .Token }}`. The app accepts email codes rather than authentication links. No global auth change is made by this repository.
 
-## Project Structure
+`SUPACLIP_BILLING_MODE=pilot` (default) enables the free pilot with the same server-enforced quotas. Paid hosting requires `SUPACLIP_BILLING_MODE=paid`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID` (USD 8/month recurring), and `STRIPE_WEBHOOK_SECRET`. Point verified subscription/invoice/checkout webhook events to `/api/stripe-webhook`. Checkout return URLs grant no entitlement. Recording, local download, library playback and deletion remain available after cancellation.
 
-```
-supa-clip/
-├── src/                          # SvelteKit frontend
-│   ├── lib/
-│   │   ├── components/
-│   │   │   ├── IdleScreen.svelte       # "Ready to record" state
-│   │   │   ├── DoneScreen.svelte       # Post-recording actions
-│   │   │   ├── TrimEditor.svelte       # Trim start/end of recording
-│   │   │   ├── SettingsPanel.svelte    # All the knobs and dials
-│   │   │   ├── RecoveryDialog.svelte   # "We found a lost recording!"
-│   │   │   └── WebcamOverlay.svelte    # PiP webcam feed
-│   │   ├── recorder/
-│   │   │   ├── mediaRecorder.ts        # MediaRecorder API wrapper
-│   │   │   └── chunkWriter.ts          # Sends chunks to Rust backend
-│   │   ├── stores/
-│   │   │   ├── recording.ts            # Recording state management
-│   │   │   └── settings.ts             # User preferences store
-│   │   └── commands.ts                 # Tauri command bindings
-│   └── routes/
-│       ├── +page.svelte                # Main app window
-│       └── hud/+page.svelte            # Floating recording HUD
-├── src-tauri/                    # Rust backend
-│   ├── src/
-│   │   ├── commands/
-│   │   │   ├── ffmpeg.rs               # FFmpeg operations (trim, convert)
-│   │   │   ├── recording.rs            # Chunk writing, crash recovery
-│   │   │   ├── settings.rs             # Settings load/save
-│   │   │   └── upload.rs               # S3-compatible upload
-│   │   ├── state.rs                    # App state management
-│   │   ├── tray.rs                     # System tray icon + menu
-│   │   ├── lib.rs                      # Plugin registration
-│   │   └── main.rs                     # Entry point
-│   └── tauri.conf.json           # Tauri configuration
-├── viewer/                       # Standalone HTML video viewer
-└── static/                       # Static assets
-```
+Configure a protected scheduler to call `/api/maintenance` with `Authorization: Bearer <SUPACLIP_MAINTENANCE_SECRET>` every 15 minutes. It purges expired incomplete uploads and deletion retries in bounded batches. Do not log this header. Storage backup deletion within 30 days is a provider/operator retention setting, not an application guarantee.
 
----
+Optional server-only analytics: `POSTHOG_API_KEY` and `POSTHOG_HOST` (`https://us.i.posthog.com` or `https://eu.i.posthog.com`). Only explicit allowlisted events are sent; no autocapture/replay, titles, media, paths, share tokens or payment details. Missing configuration returns an explicit disabled result. Paid conversion emits only after a verified paid Stripe invoice.
 
-## Settings
+Vercel uses `npm run build`. Native uses `npm run build:native`; the adapter is selected explicitly by `NATIVE_BUILD=1` so native builds retain their static assets. No deployment runs as part of development or tests.
 
-Settings live at `~/.config/supaclip/settings.json`. Here's the full schema:
+## Native recorder
 
-```jsonc
-{
-  "recording": {
-    "format": "webm",           // "webm" or "mp4"
-    "resolution": "native",     // "native", "1080p", "720p"
-    "fps": 30,                  // 30 or 60
-    "audioSource": "default"    // mic input device
-  },
-  "storage": {
-    "savePath": "~/Videos/SupaClip/",
-    "autoName": "timestamp"     // "timestamp" or "ask"
-  },
-  "hotkey": {
-    "toggleRecording": "CommandOrControl+Shift+9"
-  },
-  "upload": {
-    "enabled": false,
-    "provider": "s3",           // S3-compatible storage
-    "s3": {
-      "bucket": "",
-      "region": "",
-      "accessKeyId": "",
-      "secretAccessKey": "",
-      "endpoint": "",
-      "publicUrlBase": ""
-    }
-  }
-}
-```
+macOS/AVFoundation capture uses installed FFmpeg (PATH, Homebrew or `/usr/local/bin`), with fragmented MP4 written every second. Startup rejects missing screen devices and FFmpeg failures; it never falls back to the camera as a screen. Microphone and webcam are off in new settings. Recording status remains visible if the main window is closed during capture.
 
----
+Native settings choose MP4/WebM export, FPS, scaled resolution, save directory and shortcut. Export/recovery remuxes and validates decode before deleting the source fragments. Old unfragmented damaged MP4 files may be irreparable. Trim uses the installed FFmpeg; stream-copy boundaries follow keyframes. Custom output files are not overwritten.
 
-## Platform Support
+Optional native S3 upload uses installed curl with AWS SigV4 support. Supported endpoints: AWS S3, Cloudflare R2, DigitalOcean Spaces and Backblaze B2. Credentials are passed through process stdin, not command arguments or logs. The copied object URL obeys the bucket's access policy and is not a guarantee of public playback. Browser sharing uses private Supabase storage instead.
 
-| Platform | Status |
-|---|---|
-| macOS (Apple Silicon) | Primary development target |
-| macOS (Intel) | Supported via universal build |
-| Windows 10/11 | Supported |
-| Linux | Best-effort (screen capture APIs vary by DE) |
-
----
-
-## Pricing Philosophy
-
-**Recording is free. Forever. No limits. No time caps.**
-
-We'll never charge you to record your own screen on your own computer. That's absurd.
-
-Planned paid tier ($20/year) is for cloud features only — upload hosting, shareable links, that sort of thing.
-
----
-
-## License
-
-MIT
-
----
-
-*Built with an mass amounts of mass frustration with existing screen recorders.*
+No native installer is offered by the web app. Tauri runtime permissions, macOS signing/notarization and installer testing are separate release gates. FFmpeg is not bundled. See [implementation evidence and exact story coverage](docs/IMPLEMENTATION.md).

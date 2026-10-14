@@ -6,16 +6,19 @@
 
 	let dragging = $state(false);
 
-	onMount(async () => {
-		const unlisten = await listen('toggle-recording', async () => {
+	onMount(() => {
+        if (!('__TAURI_INTERNALS__' in window)) return;
+        let unlisten: (() => void) | undefined;
+        let disposed = false;
+        void listen('toggle-recording', async () => {
 			if ($isRecording) {
 				await stopRecording();
 				const win = getCurrentWindow();
 				await win.close();
 			}
-		});
+		}).then(fn => { if (disposed) fn(); else unlisten = fn; });
 
-		return unlisten;
+		return () => { disposed = true; unlisten?.(); };
 	});
 
 	async function handleStop() {

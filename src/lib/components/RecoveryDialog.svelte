@@ -6,6 +6,7 @@
 
 	let files = $state<RecoverableFile[]>([]);
 	let loading = $state(true);
+    let message = $state('');
 	let recovering = $state<string | null>(null);
 
 	async function load() {
@@ -13,7 +14,7 @@
 		try {
 			files = await listRecoverable();
 		} catch (err) {
-			console.error('Failed to list recoverable files:', err);
+			message = 'Could not load saved fragments. Reopen the app and retry.';
 		} finally {
 			loading = false;
 		}
@@ -22,11 +23,15 @@
 	async function handleRecover(file: RecoverableFile) {
 		recovering = file.session_id;
 		try {
-			await recoverFile(file.session_id);
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const extension = file.path.endsWith('.webm') ? 'webm' : 'mp4';
+            const destination = await save({ defaultPath: `recovered_${file.session_id}.${extension}`, filters: [{ name: 'Video', extensions: [extension] }] });
+            if (!destination) return;
+			await recoverFile(file.session_id, destination);
 			files = files.filter((f) => f.session_id !== file.session_id);
 			if (files.length === 0) onClose();
 		} catch (err) {
-			console.error('Failed to recover:', err);
+			message = String(err);
 		} finally {
 			recovering = null;
 		}
@@ -38,7 +43,7 @@
 			files = files.filter((f) => f.session_id !== file.session_id);
 			if (files.length === 0) onClose();
 		} catch (err) {
-			console.error('Failed to delete:', err);
+			message = 'Could not delete this saved fragment.';
 		}
 	}
 
@@ -66,6 +71,7 @@
 			</p>
 		</div>
 
+		{#if message}<p role="alert" class="p-4 text-red-300">{message}</p>{/if}
 		<div class="p-4 space-y-2 max-h-64 overflow-y-auto">
 			{#if loading}
 				<div class="text-center text-zinc-500 py-4">Loading...</div>

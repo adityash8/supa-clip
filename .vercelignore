@@ -1,0 +1,17 @@
+
+docs/LINEAR_PRD.md
+
+docs/PARENT_NOTES.md
+
+../docs/LINEAR_PRD.md
+
+../docs/PARENT_NOTES.md
+
+# Web deployment excludes native build and local verification artifacts.
+src-tauri/target
+.svelte-kit
+build
+test-results
+node_modules
+.git
+.env*
